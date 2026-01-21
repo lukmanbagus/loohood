@@ -1,4 +1,4 @@
-![LooHood Logo](https://loohood.web.id/wp-content/uploads/2026/01/logo-loohood.webp)
+![LooHood Logo](https://loohood.web.id/wp-content/uploads/2026/01/icon2-2048x1130.webp)
 
 # LooHood
 
@@ -183,27 +183,6 @@ wp-static-exporter/
 - Make sure the post/page status is "publish"
 - Check the post is not password protected
 - Verify permalink structure in Settings > Permalinks
-
-## Customization
-
-### Filter Post Types
-
-To change which post types are exported, edit the `exportToStatic()` method:
-```php
-$args = [
-    'post_type' => ['page', 'post', 'product'], // add CPTs
-    'post_status' => 'publish',
-    'numberposts' => -1
-];
-```
-
-### Custom HTML Generation
-
-To customize HTML output, edit the `generateStaticHTML()` method.
-
-### Custom Asset Handling
-
-To customize asset export, edit the `exportAssets()` method.
 
 
 **Note:** The GitHub repository and Cloudflare Pages project are not automatically deleted. Delete them manually if needed:
