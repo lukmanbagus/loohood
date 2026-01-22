@@ -1,9 +1,8 @@
 <?php
 /**
  * Plugin Name: LooHood
- * Plugin URI: https://loohood.web.id/
  * Description: Export WordPress pages as static HTML and deploy to GitHub & Cloudflare with automated setup wizard
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Lukman Bagus
  * Author URI: https://loohood.web.id/
  * License: GPL v2
@@ -19,8 +18,8 @@ defined('ABSPATH') || exit;
  */
 function loohood_render_plugin_header( $subtitle ) {
     $subtitle_text = is_string( $subtitle ) ? trim( $subtitle ) : '';
-    $dashboard_url = admin_url( 'admin.php?page=wp-static-exporter' );
-    $settings_url  = admin_url( 'admin.php?page=wp-static-exporter-settings' );
+    $dashboard_url = admin_url( 'admin.php?page=loohood-exporter' );
+    $settings_url  = admin_url( 'admin.php?page=loohood-exporter-settings' );
 
     include plugin_dir_path( __FILE__ ) . 'templates/inc/header.php';
 }
@@ -50,6 +49,22 @@ class WP_Static_Exporter {
         }
 
         return 'git';
+    }
+
+    private function getWpFilesystem() {
+        global $wp_filesystem;
+
+        if (isset($wp_filesystem)) {
+            return $wp_filesystem;
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+
+        if (!WP_Filesystem()) {
+            return false;
+        }
+
+        return $wp_filesystem;
     }
 
     private function buildGitHubRepoUrlWithToken($owner, $repo, $token) {
@@ -99,47 +114,47 @@ class WP_Static_Exporter {
     public function addAdminMenu() {
         add_menu_page(
             'LooHood',
-            'Static Exporter',
+            'LooHood',
             'manage_options',
-            'wp-static-exporter',
+            'loohood-exporter',
             [$this, 'renderAdminPage'],
             'dashicons-cloud',
             30
         );
 
         add_submenu_page(
-            'wp-static-exporter',
+            'loohood-exporter',
             'Settings',
             'Settings',
             'manage_options',
-            'wp-static-exporter-settings',
+            'loohood-exporter-settings',
             [$this, 'renderSettingsPage']
         );
     }
 
     public function registerSettings() {
-        register_setting('loohood_settings', 'loohood_github_token');
-        register_setting('loohood_settings', 'loohood_github_repo');
-        register_setting('loohood_settings', 'loohood_github_owner');
-        register_setting('loohood_settings', 'loohood_github_branch', ['default' => 'main']);
-        register_setting('loohood_settings', 'loohood_repo_cloned', ['default' => 0]);
-        register_setting('loohood_settings', 'loohood_git_configured', ['default' => 0]);
-        register_setting('loohood_settings', 'loohood_auto_deploy_enabled', ['default' => 0]);
-        register_setting('loohood_settings', 'loohood_cloudflare_token');
-        register_setting('loohood_settings', 'loohood_cloudflare_account_id');
-        register_setting('loohood_settings', 'loohood_cloudflare_project');
-        register_setting('loohood_settings', 'loohood_cloudflare_project_id');
-        register_setting('loohood_settings', 'loohood_cloudflare_custom_domain');
-        register_setting('loohood_settings', 'loohood_setup_completed', ['default' => 0]);
-        register_setting('loohood_settings', 'loohood_auto_deploy', ['default' => 1]);
-        register_setting('loohood_settings', 'loohood_deploy_logs', ['default' => []]);
-        register_setting('loohood_settings', 'loohood_git_path', ['default' => '/usr/bin/git']);
-        register_setting('loohood_settings', 'loohood_not_found_target_type', ['default' => '404']);
-        register_setting('loohood_settings', 'loohood_not_found_target_page_id', ['default' => 0]);
+        register_setting('loohood_settings', 'loohood_github_token', ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('loohood_settings', 'loohood_github_repo', ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('loohood_settings', 'loohood_github_owner', ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('loohood_settings', 'loohood_github_branch', ['default' => 'main', 'sanitize_callback' => 'sanitize_text_field']);
+        register_setting('loohood_settings', 'loohood_repo_cloned', ['default' => 0, 'sanitize_callback' => 'intval']);
+        register_setting('loohood_settings', 'loohood_git_configured', ['default' => 0, 'sanitize_callback' => 'intval']);
+        register_setting('loohood_settings', 'loohood_auto_deploy_enabled', ['default' => 0, 'sanitize_callback' => 'intval']);
+        register_setting('loohood_settings', 'loohood_cloudflare_token', ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('loohood_settings', 'loohood_cloudflare_account_id', ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('loohood_settings', 'loohood_cloudflare_project', ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('loohood_settings', 'loohood_cloudflare_project_id', ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('loohood_settings', 'loohood_cloudflare_custom_domain', ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('loohood_settings', 'loohood_setup_completed', ['default' => 0, 'sanitize_callback' => 'intval']);
+        register_setting('loohood_settings', 'loohood_auto_deploy', ['default' => 1, 'sanitize_callback' => 'intval']);
+        register_setting('loohood_settings', 'loohood_deploy_logs', ['default' => [], 'sanitize_callback' => function($logs) { return is_array($logs) ? $logs : []; }]);
+        register_setting('loohood_settings', 'loohood_git_path', ['default' => '/usr/bin/git', 'sanitize_callback' => 'sanitize_text_field']);
+        register_setting('loohood_settings', 'loohood_not_found_target_type', ['default' => '404', 'sanitize_callback' => 'sanitize_text_field']);
+        register_setting('loohood_settings', 'loohood_not_found_target_page_id', ['default' => 0, 'sanitize_callback' => 'intval']);
     }
 
     public function enqueueScripts($hook) {
-        if (strpos($hook, 'wp-static-exporter') !== false) {
+        if (strpos($hook, 'loohood-exporter') !== false) {
             wp_enqueue_script('loohood-tailwind', 'https://cdn.tailwindcss.com?plugins=forms,typography,container-queries', [], null, false);
             wp_enqueue_style('loohood-fonts', 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap', [], null);
             wp_enqueue_style('loohood-material-symbols', 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', [], null);
@@ -195,7 +210,7 @@ class WP_Static_Exporter {
         if (isset($_POST['loohood_save_settings'])) {
             check_admin_referer('loohood_settings_nonce');
             if (isset($_POST['loohood_git_path'])) {
-                update_option('loohood_git_path', sanitize_text_field($_POST['loohood_git_path']));
+                update_option('loohood_git_path', sanitize_text_field(wp_unslash($_POST['loohood_git_path'])));
                 echo wp_kses( '<div class="notice notice-success is-dismissible"><p>Settings saved!</p></div>', array( 'div' => array( 'class' => array() ), 'p' => array() ) );
             }
         }
@@ -217,7 +232,7 @@ class WP_Static_Exporter {
         if (isset($_POST['loohood_save_not_found_settings'])) {
             check_admin_referer('loohood_not_found_settings_nonce');
 
-            $type = isset($_POST['loohood_not_found_target_type']) ? sanitize_text_field($_POST['loohood_not_found_target_type']) : '404';
+            $type = isset($_POST['loohood_not_found_target_type']) ? sanitize_text_field(wp_unslash($_POST['loohood_not_found_target_type'])) : '404';
             if (!in_array($type, ['404', 'home', 'page'], true)) {
                 $type = '404';
             }
@@ -241,7 +256,7 @@ class WP_Static_Exporter {
         if (isset($_POST['loohood_save_custom_assets_settings'])) {
             check_admin_referer('loohood_custom_assets_settings_nonce');
 
-            $custom_assets = isset($_POST['loohood_custom_asset_paths']) ? sanitize_textarea_field($_POST['loohood_custom_asset_paths']) : '';
+            $custom_assets = isset($_POST['loohood_custom_asset_paths']) ? sanitize_textarea_field(wp_unslash($_POST['loohood_custom_asset_paths'])) : '';
             update_option('loohood_custom_asset_paths', $custom_assets);
 
             echo wp_kses( '<div class="notice notice-success is-dismissible"><p>Custom asset paths saved!</p></div>', array( 'div' => array( 'class' => array() ), 'p' => array() ) );
@@ -262,10 +277,7 @@ class WP_Static_Exporter {
     }
 
     public function runSetupWizard() {
-        error_log('WPSE: runSetupWizard called');
-
         if (!current_user_can('manage_options')) {
-            error_log('WPSE: Permission denied - user does not have manage_options capability');
             wp_send_json_error(['message' => 'Permission denied']);
         }
 
@@ -276,16 +288,21 @@ class WP_Static_Exporter {
         try {
             switch ($step) {
                 case 1:
-                    $result = $this->connectGitHub();
+                    $github_token = isset($_POST['github_token']) ? sanitize_text_field(wp_unslash($_POST['github_token'])) : '';
+                    $result = $this->connectGitHub($github_token);
                     break;
                 case 2:
-                    $result = $this->createGitHubRepo();
+                    $repo_name = isset($_POST['repo_name']) ? sanitize_text_field(wp_unslash($_POST['repo_name'])) : '';
+                    $result = $this->createGitHubRepo($repo_name);
                     break;
                 case 3:
-                    $result = $this->connectCloudflare();
+                    $cloudflare_token = isset($_POST['cloudflare_token']) ? sanitize_text_field(wp_unslash($_POST['cloudflare_token'])) : '';
+                    $result = $this->connectCloudflare($cloudflare_token);
                     break;
                 case 4:
-                    $result = $this->createCloudflareProject();
+                    $project_name = isset($_POST['project_name']) ? sanitize_text_field(wp_unslash($_POST['project_name'])) : '';
+                    $custom_domain = isset($_POST['custom_domain']) ? sanitize_text_field(wp_unslash($_POST['custom_domain'])) : '';
+                    $result = $this->createCloudflareProject($project_name, $custom_domain);
                     break;
                 default:
                     throw new Exception('Invalid step');
@@ -298,19 +315,13 @@ class WP_Static_Exporter {
     }
 
     public function streamDeploy() {
-        error_log('WPSE: streamDeploy called');
-
         if (!current_user_can('manage_options')) {
-            error_log('WPSE: Permission denied - user does not have manage_options capability');
             wp_send_json_error(['message' => 'Permission denied']);
         }
 
         check_ajax_referer('loohood_nonce', 'nonce', true);
 
-        error_log('WPSE: Starting deployment process');
-
         try {
-            error_log('WPSE: Clearing deploy logs');
             $this->clearDeployLogs();
             $this->addDeployLog('info', 'Starting deployment...');
 
@@ -335,16 +346,14 @@ class WP_Static_Exporter {
             } else {
                 $this->addDeployLog('info', 'Repository not cloned, cloning to /wp-content/uploads/' . $repo . ' ...');
                 $this->cloneRepository();
-                $this->export_dir = get_option('loohood_export_dir', $expected_clone_dir);
-                $this->addDeployLog('success', 'Repository cloned successfully');
-            }
+            $this->export_dir = get_option('loohood_export_dir', $expected_clone_dir);
+            $this->addDeployLog('success', 'Repository cloned successfully');
+        }
 
-            error_log('WPSE: Calling exportToStatic()');
-            $this->exportToStatic();
-            $this->addDeployLog('success', 'Static files exported successfully');
+        $this->exportToStatic();
+        $this->addDeployLog('success', 'Static files exported successfully');
 
-            error_log('WPSE: Calling pushToGitHub()');
-            $github_result = $this->pushToGitHub();
+        $github_result = $this->pushToGitHub();
             $this->addDeployLog('success', 'Pushed to GitHub successfully');
 
             try {
@@ -356,21 +365,15 @@ class WP_Static_Exporter {
             $this->addDeployLog('success', 'Deployment completed successfully!');
             $this->addDeployLog('info', 'Cloudflare Pages will deploy from GitHub');
 
-            error_log('WPSE: Deployment completed successfully');
             wp_send_json_success(['message' => 'Deployment completed']);
         } catch (Exception $e) {
-            error_log('WPSE: Exception caught: ' . $e->getMessage());
-            error_log('WPSE: Exception trace: ' . $e->getTraceAsString());
             $this->addDeployLog('error', 'Error: ' . $e->getMessage());
             wp_send_json_error(['message' => $e->getMessage()]);
         }
     }
 
     public function getDeployLogs() {
-        error_log('WPSE: getDeployLogs called');
-
         if (!current_user_can('manage_options')) {
-            error_log('WPSE: Permission denied - user does not have manage_options capability');
             wp_send_json_error(['message' => 'Permission denied']);
         }
 
@@ -508,18 +511,16 @@ class WP_Static_Exporter {
                 $this->addDeployLog('warning', 'Cloudflare deployment not triggered: ' . $e->getMessage());
             }
 
-            error_log('LooHood: Auto-deploy completed for post ' . $post_id);
         } catch (Exception $e) {
             $this->addDeployLog('error', 'Auto deploy failed: ' . $e->getMessage());
-            error_log('LooHood: Auto-deploy failed for post ' . $post_id . ': ' . $e->getMessage());
         } finally {
             $this->releaseAutoDeployLock();
         }
     }
 
-    private function connectGitHub() {
+    private function connectGitHub($token = null) {
         $logs = [];
-        $token = isset($_POST['github_token']) ? sanitize_text_field($_POST['github_token']) : '';
+        $token = is_string($token) ? $token : '';
 
         if (empty($token)) {
             throw new Exception('GitHub token is required');
@@ -562,11 +563,11 @@ class WP_Static_Exporter {
         throw new Exception('Invalid GitHub token');
     }
 
-    private function createGitHubRepo() {
+    private function createGitHubRepo($repo_name = null) {
         $logs = [];
         $token = get_option('loohood_github_token');
         $owner = get_option('loohood_github_owner');
-        $repo_name = isset($_POST['repo_name']) ? sanitize_text_field($_POST['repo_name']) : 'wp-static-' . time();
+        $repo_name = is_string($repo_name) ? $repo_name : 'wp-static-' . time();
 
         $logs[] = ['type' => 'info', 'message' => 'Creating repository: ' . $repo_name];
         $logs[] = ['type' => 'info', 'message' => 'POST https://api.github.com/user/repos'];
@@ -650,7 +651,8 @@ class WP_Static_Exporter {
             throw new Exception('Uploads directory not found');
         }
 
-        if (!is_writable($uploads_dir)) {
+        $wp_filesystem = $this->getWpFilesystem();
+        if ($wp_filesystem && !$wp_filesystem->is_writable($uploads_dir)) {
             throw new Exception('Uploads directory is not writable');
         }
 
@@ -668,18 +670,23 @@ class WP_Static_Exporter {
 
         if (is_dir($clone_dir)) {
             $logs[] = ['type' => 'warning', 'message' => 'Directory already exists, removing...'];
-            $iterator = new RecursiveIteratorIterator(
-                new RecursiveDirectoryIterator($clone_dir, RecursiveDirectoryIterator::SKIP_DOTS),
-                RecursiveIteratorIterator::CHILD_FIRST
-            );
-            foreach ($iterator as $item) {
-                if ($item->isDir()) {
-                    @rmdir($item->getPathname());
-                } else {
-                    @unlink($item->getPathname());
+            $wp_filesystem = $this->getWpFilesystem();
+
+            if ($wp_filesystem) {
+                $iterator = new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator($clone_dir, RecursiveDirectoryIterator::SKIP_DOTS),
+                    RecursiveIteratorIterator::CHILD_FIRST
+                );
+                foreach ($iterator as $item) {
+                    $path = $item->getPathname();
+                    if ($item->isDir()) {
+                        $wp_filesystem->rmdir($path);
+                    } else {
+                        $wp_filesystem->delete($path);
+                    }
                 }
+                $wp_filesystem->rmdir($clone_dir);
             }
-            @rmdir($clone_dir);
         }
 
         $clone_url = $this->buildGitHubRepoUrlWithToken($owner, $repo, $token);
@@ -800,9 +807,9 @@ class WP_Static_Exporter {
         ];
     }
 
-    private function connectCloudflare() {
+    private function connectCloudflare($token = null) {
         $logs = [];
-        $token = isset($_POST['cloudflare_token']) ? sanitize_text_field($_POST['cloudflare_token']) : '';
+        $token = is_string($token) ? $token : '';
 
         if (empty($token)) {
             throw new Exception('Cloudflare token is required');
@@ -857,14 +864,14 @@ class WP_Static_Exporter {
         throw new Exception('Invalid Cloudflare token');
     }
 
-    private function createCloudflareProject() {
+    private function createCloudflareProject($project_name = null, $custom_domain_raw = null) {
         $logs = [];
         $token = get_option('loohood_cloudflare_token');
         $account_id = get_option('loohood_cloudflare_account_id');
         $owner = get_option('loohood_github_owner');
         $repo = get_option('loohood_github_repo');
-        $project_name = isset($_POST['project_name']) ? sanitize_text_field($_POST['project_name']) : $repo . '-pages';
-        $custom_domain_raw = isset($_POST['custom_domain']) ? sanitize_text_field($_POST['custom_domain']) : '';
+        $project_name = is_string($project_name) ? $project_name : ($repo . '-pages');
+        $custom_domain_raw = is_string($custom_domain_raw) ? $custom_domain_raw : '';
         $custom_domain = $this->normalizeCloudflareCustomDomain($custom_domain_raw);
 
         $logs[] = ['type' => 'info', 'message' => 'Creating Cloudflare Pages project: ' . $project_name];
@@ -1370,10 +1377,11 @@ class WP_Static_Exporter {
 
         check_ajax_referer('loohood_nonce', 'nonce', true);
 
+        $domain_raw = isset($_POST['domain']) ? sanitize_text_field(wp_unslash($_POST['domain'])) : '';
+
         $logs = [];
 
         try {
-            $domain_raw = isset($_POST['domain']) ? sanitize_text_field($_POST['domain']) : '';
             $domain = $this->normalizeCloudflareCustomDomain($domain_raw);
 
             if (empty($domain)) {
@@ -1437,8 +1445,8 @@ class WP_Static_Exporter {
 
         check_ajax_referer('loohood_nonce', 'nonce', true);
 
-        $token_type = isset($_POST['token_type']) ? sanitize_text_field($_POST['token_type']) : '';
-        $token = isset($_POST['token']) ? sanitize_text_field($_POST['token']) : '';
+        $token_type = isset($_POST['token_type']) ? sanitize_text_field(wp_unslash($_POST['token_type'])) : '';
+        $token = isset($_POST['token']) ? sanitize_text_field(wp_unslash($_POST['token'])) : '';
 
         try {
             if ($token_type !== 'github' && $token_type !== 'cloudflare') {
@@ -1561,9 +1569,6 @@ class WP_Static_Exporter {
     }
 
     private function pushToGitHub() {
-        error_log('WPSE: pushToGitHub started using Git CLI');
-        error_log('WPSE: Git path: ' . $this->getGitPath());
-        
         $token = get_option('loohood_github_token');
         $owner = get_option('loohood_github_owner');
         $repo = get_option('loohood_github_repo');
@@ -1573,7 +1578,6 @@ class WP_Static_Exporter {
             throw new Exception('GitHub settings not configured');
         }
 
-        error_log('WPSE: Pushing to GitHub: ' . $owner . '/' . $repo);
         $this->addDeployLog('info', 'Pushing to GitHub: ' . $owner . '/' . $repo);
 
         $repo_url = $this->buildGitHubRepoUrlWithToken($owner, $repo, $token);
@@ -1581,8 +1585,6 @@ class WP_Static_Exporter {
         $git = $this->getGitPath();
 
         try {
-            error_log('WPSE: Preparing Git operations in export directory');
-
             if (!is_dir($export_dir)) {
                 throw new Exception('Export directory does not exist');
             }
@@ -1606,12 +1608,10 @@ class WP_Static_Exporter {
 
             if (!$is_git_repo) {
                 $this->addDeployLog('info', 'Initializing Git repository...');
-                error_log('WPSE: Initializing Git repository');
 
                 $output = $this->execCommand("cd '{$export_dir}' && '{$git}' init 2>&1", true);
                 if ($output['return_code'] !== 0) {
                     $safe_output = $this->redactSensitive($output['output']);
-                    error_log('WPSE: Git init failed: ' . $safe_output);
                     throw new Exception('Failed to initialize Git repository: ' . $safe_output);
                 }
             }
@@ -1622,55 +1622,39 @@ class WP_Static_Exporter {
             $this->execCommand("cd '{$export_dir}' && '{$git}' config http.version HTTP/1.1 2>&1", true);
 
             $this->addDeployLog('info', 'Configuring Git remote...');
-            error_log('WPSE: Configuring Git remote');
 
             $output = $this->execCommand("cd '{$export_dir}' && '{$git}' remote get-url origin 2>&1", true);
             if ($output['return_code'] !== 0 || strpos($output['output'], 'github.com') === false) {
                 $output = $this->execCommand("cd '{$export_dir}' && '{$git}' remote add origin '{$repo_url}' 2>&1", true);
-                if ($output['return_code'] !== 0) {
-                    error_log('WPSE: Git remote add failed: ' . $this->redactSensitive($output['output']));
-                }
             } else {
                 $output = $this->execCommand("cd '{$export_dir}' && '{$git}' remote set-url origin '{$repo_url}' 2>&1", true);
-                if ($output['return_code'] !== 0) {
-                    error_log('WPSE: Git remote set-url failed: ' . $this->redactSensitive($output['output']));
-                }
             }
 
             $this->addDeployLog('info', 'Configuring Git user...');
-            error_log('WPSE: Configuring Git user');
 
             $this->execCommand("cd '{$export_dir}' && '{$git}' config user.name 'WordPress Static Exporter'", true);
             $this->execCommand("cd '{$export_dir}' && '{$git}' config user.email 'wordpress@localhost'", true);
 
             $this->addDeployLog('info', 'Adding files to Git...');
-            error_log('WPSE: Adding files to Git');
 
             $output = $this->execCommand("cd '{$export_dir}' && '{$git}' add -A 2>&1", true);
-            if ($output['return_code'] !== 0) {
-                error_log('WPSE: Git add failed: ' . $this->redactSensitive($output['output']));
-            }
 
             $status_output = $this->execCommand("cd '{$export_dir}' && '{$git}' status --porcelain 2>&1", true);
             if (empty(trim($status_output['output']))) {
                 $this->addDeployLog('info', 'No changes to commit');
-                error_log('WPSE: No changes to commit');
                 return ['sha' => null];
             }
 
             $commit_message = 'Update static export from WordPress - ' . gmdate('Y-m-d H:i:s');
             $this->addDeployLog('info', 'Creating commit...');
-            error_log('WPSE: Creating commit with message: ' . $commit_message);
 
             $output = $this->execCommand("cd '{$export_dir}' && '{$git}' commit -m " . escapeshellarg($commit_message) . " 2>&1", true);
             if ($output['return_code'] !== 0) {
                 $safe_output = $this->redactSensitive($output['output']);
-                error_log('WPSE: Commit failed: ' . $safe_output);
                 throw new Exception('Failed to create commit: ' . $safe_output);
             }
 
             $this->addDeployLog('info', 'Pushing to GitHub...');
-            error_log('WPSE: Pushing to GitHub');
 
             if (!$is_git_repo) {
                 $output = $this->execCommand(
@@ -1686,12 +1670,10 @@ class WP_Static_Exporter {
 
             if ($output['return_code'] !== 0) {
                 $safe_output = $this->redactSensitive($output['output']);
-                error_log('WPSE: Push failed: ' . $safe_output);
                 throw new Exception('Failed to push to GitHub: ' . $safe_output);
             }
 
             $this->addDeployLog('success', 'Pushed to GitHub successfully');
-            error_log('WPSE: pushToGitHub completed successfully');
 
             return ['sha' => null];
         } catch (Exception $e) {
@@ -1748,6 +1730,10 @@ class WP_Static_Exporter {
     }
 
     private function execCommand($command, $capture_output = false) {
+        if (!function_exists('proc_open')) {
+            throw new Exception('System command execution (proc_open) is not available. Git functionality requires system command execution to be enabled.');
+        }
+
         $descriptorspec = $capture_output ? [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
@@ -1766,8 +1752,12 @@ class WP_Static_Exporter {
         if ($capture_output) {
             $stdout = stream_get_contents($pipes[1]);
             $stderr = stream_get_contents($pipes[2]);
-            fclose($pipes[1]);
-            fclose($pipes[2]);
+            if (isset($pipes[1])) {
+                fclose($pipes[1]);
+            }
+            if (isset($pipes[2])) {
+                fclose($pipes[2]);
+            }
         }
 
         $return_code = proc_close($process);
@@ -1870,7 +1860,7 @@ class WP_Static_Exporter {
         delete_option('loohood_cloudflare_pages_host');
 
         // Use JavaScript redirect since headers are already sent
-        $redirect_url = admin_url('admin.php?page=wp-static-exporter');
+        $redirect_url = admin_url('admin.php?page=loohood-exporter');
         echo '<script>window.location.href = "' . esc_url($redirect_url) . '";</script>';
         echo '<noscript><meta http-equiv="refresh" content="0;url=' . esc_url($redirect_url) . '"></noscript>';
         exit;
@@ -2426,8 +2416,8 @@ class WP_Static_Exporter {
      * Copy a local asset file to export directory
      */
     private function copyLocalAsset($url) {
-        $parsed_url = parse_url($url);
-        if ($parsed_url === false || !isset($parsed_url['path'])) {
+        $parsed_url = wp_parse_url($url);
+        if ($parsed_url === null || !isset($parsed_url['path'])) {
             return false;
         }
 
@@ -2552,8 +2542,8 @@ class WP_Static_Exporter {
     }
 
     private function fetchXmlStylesheet($url) {
-        $parsed_url = parse_url($url);
-        if ($parsed_url === false || !isset($parsed_url['path'])) {
+        $parsed_url = wp_parse_url($url);
+        if ($parsed_url === null || !isset($parsed_url['path'])) {
             $this->addDeployLog('warning', 'Failed to parse URL: ' . $url);
             return false;
         }
@@ -2663,15 +2653,15 @@ class WP_Static_Exporter {
     }
 
     /**
-     * Convert an external URL to local WordPress URL using the same path
+     * Convert an external URL to local WordPress URL using same path
      */
     private function convertToLocalUrl($url) {
-        $parsed_url = parse_url($url);
-        if ($parsed_url === false || !isset($parsed_url['path'])) {
+        $parsed_url = wp_parse_url($url);
+        if ($parsed_url === null || !isset($parsed_url['path'])) {
             return $url;
         }
 
-        // Get the path part and construct local URL
+        // Get path part and construct local URL
         $path = $parsed_url['path'];
         return home_url($path);
     }
@@ -2857,7 +2847,8 @@ class WP_Static_Exporter {
 
     private function getFilenameFromUrl($url) {
         $home_url = home_url('/');
-        $url_path = parse_url($url, PHP_URL_PATH);
+        $parsed_url = wp_parse_url($url);
+        $url_path = isset($parsed_url['path']) ? $parsed_url['path'] : '/';
 
         if ($url_path === '/' || $url_path === $home_url || rtrim($url_path, '/') === rtrim($home_url, '/')) {
             return 'index.html';
@@ -3324,7 +3315,8 @@ class WP_Static_Exporter {
         }
 
         if (strpos($maybe_relative_url, '//') === 0) {
-            $scheme = parse_url($base_url, PHP_URL_SCHEME);
+            $parsed_base = wp_parse_url($base_url);
+            $scheme = isset($parsed_base['scheme']) ? $parsed_base['scheme'] : '';
             if (!$scheme) {
                 $scheme = 'https';
             }
@@ -3340,7 +3332,7 @@ class WP_Static_Exporter {
         }
 
         $base_url = $this->stripUrlQueryAndFragment($base_url);
-        $base_parts = parse_url($base_url);
+        $base_parts = wp_parse_url($base_url);
         if (empty($base_parts['scheme']) || empty($base_parts['host']) || empty($base_parts['path'])) {
             return '';
         }
@@ -3572,20 +3564,24 @@ class WP_Static_Exporter {
     private function cleanExportDir() {
         if (is_dir($this->export_dir)) {
             try {
-                $files = new RecursiveIteratorIterator(
-                    new RecursiveDirectoryIterator($this->export_dir, RecursiveDirectoryIterator::SKIP_DOTS),
-                    RecursiveIteratorIterator::CHILD_FIRST
-                );
+                $wp_filesystem = $this->getWpFilesystem();
 
-                foreach ($files as $file) {
-                    $path = $file->getRealPath();
-                    if ($path && strpos($path, $this->export_dir . DIRECTORY_SEPARATOR . '.git') === 0) {
-                        continue;
-                    }
-                    if ($file->isDir()) {
-                        @rmdir($path);
-                    } else {
-                        @unlink($path);
+                if ($wp_filesystem) {
+                    $files = new RecursiveIteratorIterator(
+                        new RecursiveDirectoryIterator($this->export_dir, RecursiveDirectoryIterator::SKIP_DOTS),
+                        RecursiveIteratorIterator::CHILD_FIRST
+                    );
+
+                    foreach ($files as $file) {
+                        $path = $file->getRealPath();
+                        if ($path && strpos($path, $this->export_dir . DIRECTORY_SEPARATOR . '.git') === 0) {
+                            continue;
+                        }
+                        if ($file->isDir()) {
+                            $wp_filesystem->rmdir($path);
+                        } else {
+                            $wp_filesystem->delete($path);
+                        }
                     }
                 }
             } catch (Exception $e) {

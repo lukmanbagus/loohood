@@ -44,7 +44,7 @@ $loohood_auto_deploy_enabled = get_option('loohood_auto_deploy_enabled') ? 1 : 0
                 <div class="font-extrabold mb-1">Note</div>
                 <div class="text-sm text-[#f49300]/80">
                     This plugin uses an automatic setup wizard for GitHub &amp; Cloudflare configuration. Most settings are configured automatically during the initial setup.
-                    To fully reset configuration, open the <a class="text-[#f49300] font-semibold hover:underline" href="<?php echo esc_url(admin_url('admin.php?page=wp-static-exporter')); ?>">Dashboard</a> and click “Reset &amp; Disconnect”.
+                    To fully reset configuration, open the <a class="text-[#f49300] font-semibold hover:underline" href="<?php echo esc_url(admin_url('admin.php?page=loohood-exporter')); ?>">Dashboard</a> and click “Reset &amp; Disconnect”.
                 </div>
             </div>
 

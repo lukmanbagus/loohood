@@ -222,7 +222,7 @@
                             </div>
 
                             <div class="mt-8 flex justify-end">
-                                <a href="<?php echo esc_url(admin_url('admin.php?page=wp-static-exporter')); ?>" class="inline-flex items-center justify-center gap-2 px-6 py-2 rounded-lg bg-[#f49300] text-white font-extrabold hover:bg-[#d37f00] hover:!text-white focus:ring-4 focus:ring-orange-100 transition-all">
+                                <a href="<?php echo esc_url(admin_url('admin.php?page=loohood-exporter')); ?>" class="inline-flex items-center justify-center gap-2 px-6 py-2 rounded-lg bg-[#f49300] text-white font-extrabold hover:bg-[#d37f00] hover:!text-white focus:ring-4 focus:ring-orange-100 transition-all">
                                     <span class="material-symbols-outlined text-lg">dashboard</span>
                                     Go to Dashboard
                                 </a>

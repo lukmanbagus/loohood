@@ -1,15 +1,5 @@
 ![LooHood Logo](https://loohood.web.id/wp-content/uploads/2026/01/icon2-2048x1130.webp)
 
-# LooHood
-
-Loohood is a WordPress plugin that lets you use WordPress only as a local content editor, not as a public-facing server.
-
-You write content in WordPress using LocalWP.
-Loohood exports it into static files, pushes them to GitHub, and lets Cloudflare serve them globally.
-
-WordPress never touches the internet.
-Your site stays fast, secure, and simple.
-
 ## Features
 
 - ✅ Automatic setup wizard (4 simple steps)
@@ -126,22 +116,30 @@ Click "Reset & Disconnect" to:
 ## File Structure
 
 ```
-wp-static-exporter/
-├── wp-static-exporter.php  # Main plugin file
+loohood-exporter/
+├── loohood-exporter.php  # Main plugin file
 ├── uninstall.php             # Clean up on uninstall
 ├── .gitignore                 # Git ignore rules
 ├── README.md                  # Documentation
 ├── templates/
-│   ├── inc/
-│   │   └── header.php        # Header template
 │   ├── wizard-page.php       # Setup wizard page
 │   ├── admin-page.php        # Main admin page
 │   └── settings-page.php     # Legacy settings page
 └── assets/
-    └── admin.css            # Admin styles
+    ├── admin.css            # Admin styles
+    └── admin.js             # Admin scripts
 ```
 
-/wp-content/uploads/[repo_name]/
+## Export Location
+
+Static HTML is exported to:
+```
+/wp-content/uploads/wp-exporter-result/
+```
+
+## Troubleshooting
+
+### Setup Wizard Error
 
 **GitHub token invalid**
 - Make sure the token is still valid
@@ -184,6 +182,41 @@ wp-static-exporter/
 - Check the post is not password protected
 - Verify permalink structure in Settings > Permalinks
 
+## Customization
+
+### Filter Post Types
+
+To change which post types are exported, edit the `exportToStatic()` method:
+```php
+$args = [
+    'post_type' => ['page', 'post', 'product'], // add CPTs
+    'post_status' => 'publish',
+    'numberposts' => -1
+];
+```
+
+### Custom HTML Generation
+
+To customize HTML output, edit the `generateStaticHTML()` method.
+
+### Custom Asset Handling
+
+To customize asset export, edit the `exportAssets()` method.
+
+## Security
+
+- Tokens are stored in the WordPress database (options `loohood_...`)
+- Use HTTPS for WordPress admin
+- Do not share tokens publicly
+- Keep the plugin updated
+- Repositories are created as private
+- Tokens should never appear in logs
+
+## Uninstall
+
+To uninstall the plugin:
+1. Deactivate the plugin via the Plugins menu
+2. Delete the plugin
 
 **Note:** The GitHub repository and Cloudflare Pages project are not automatically deleted. Delete them manually if needed:
 - GitHub: Open repository > Settings > Delete repository
@@ -199,6 +232,12 @@ A: Yes. After setup is complete, you can add a custom domain in the Cloudflare P
 
 **Q: How often should I deploy?**
 A: Deploy whenever content changes (posts, pages, media). You can also deploy manually anytime from the dashboard
+
+**Q: Does it support Cloudflare Workers?**
+A: The current version focuses on Cloudflare Pages. Workers support can be added in a future release
+
+**Q: Does it support Cloudflare R2?**
+A: The structure is ready for R2 integration. The feature can be added in a future release
 
 ## Support & Contribution
 
